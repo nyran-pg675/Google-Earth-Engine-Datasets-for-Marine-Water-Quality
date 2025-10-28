@@ -1,0 +1,89 @@
+
+// 1. DEFINE REGION: Gulf of Kachchh
+
+var gulfOfKachchh = ee.Geometry.Polygon([
+  [[68.6, 23.0], [70.8, 23.0], [70.8, 22.1], [68.6, 22.1]]
+]);
+
+// Years to analyze
+var years = [1988, 2010, 2014, 2016];
+
+// Visualization parameters (in °C)
+var visParams = {
+  min: 20,
+  max: 33,
+  palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
+};
+
+
+// 2. FUNCTION: Generate monthly means for a given year
+
+function getMonthlyMean(year) {
+  var months = ee.List.sequence(1, 12);
+  var monthlyImages = months.map(function(m) {
+    var start = ee.Date.fromYMD(year, m, 1);
+    var end = start.advance(1, 'month');
+    var monthlyMean = ee.ImageCollection("NOAA/CDR/OISST/V2_1")
+      .filterBounds(gulfOfKachchh)
+      .filterDate(start, end)
+      .select('sst')
+      .mean()
+      .multiply(0.01)   // Convert to °C
+      .clip(gulfOfKachchh)
+      .set('year', year)
+      .set('month', m);
+    return ee.Image(monthlyMean);
+  });
+  return ee.ImageCollection(monthlyImages);
+}
+
+
+// 3. COMBINE MONTHLY MEANS FOR ALL YEARS
+
+var combinedList = ee.List(
+  years.map(function(y) {
+    var ic = getMonthlyMean(y);
+    return ic.toList(ic.size());
+  })
+).flatten();
+
+var combinedIC = ee.ImageCollection(combinedList);
+
+
+// 4. REDUCE TO MEAN OVER REGION & MAKE FEATURE COLLECTION
+
+var features = combinedIC.map(function(img) {
+  var meanDict = img.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: gulfOfKachchh,
+    scale: 25000,
+    bestEffort: true
+  });
+  return ee.Feature(null, {
+    'year': img.get('year'),
+    'month': img.get('month'),
+    'mean_SST_C': meanDict.get('sst') // values in °C
+  });
+});
+
+// 5. EXPORT TO CSV
+
+Export.table.toDrive({
+  collection: features,
+  description: 'GulfOfKachchh_SST_Monthly_Celsius',
+  fileFormat: 'CSV'
+});
+
+// 6. OPTIONAL: VISUALIZE A YEARLY COMPOSITE
+
+var sst2010 = ee.ImageCollection("NOAA/CDR/OISST/V2_1")
+  .filterBounds(gulfOfKachchh)
+  .filterDate('2010-01-01', '2010-12-31')
+  .select('sst')
+  .mean()
+  .multiply(0.01)   // convert to °C
+  .clip(gulfOfKachchh);
+
+Map.addLayer(sst2010, visParams, 'SST 2010 Mean (°C)');
+Map.centerObject(gulfOfKachchh, 6);
+Map.addLayer(gulfOfKachchh, {color: 'black'}, 'Gulf of Kachchh AOI');
