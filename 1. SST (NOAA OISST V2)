@@ -1,7 +1,7 @@
 
-// 1. DEFINE REGION: Gulf of Kachchh
+// 1. DEFINE REGION: aoi
 
-var gulfOfKachchh = ee.Geometry.Polygon([
+var aoi = ee.Geometry.Polygon([
   [[68.6, 23.0], [70.8, 23.0], [70.8, 22.1], [68.6, 22.1]]
 ]);
 
@@ -24,7 +24,7 @@ function getMonthlyMean(year) {
     var start = ee.Date.fromYMD(year, m, 1);
     var end = start.advance(1, 'month');
     var monthlyMean = ee.ImageCollection("NOAA/CDR/OISST/V2_1")
-      .filterBounds(gulfOfKachchh)
+      .filterBounds(aoi)
       .filterDate(start, end)
       .select('sst')
       .mean()
@@ -55,7 +55,7 @@ var combinedIC = ee.ImageCollection(combinedList);
 var features = combinedIC.map(function(img) {
   var meanDict = img.reduceRegion({
     reducer: ee.Reducer.mean(),
-    geometry: gulfOfKachchh,
+    geometry: aoi,
     scale: 25000,
     bestEffort: true
   });
@@ -70,20 +70,20 @@ var features = combinedIC.map(function(img) {
 
 Export.table.toDrive({
   collection: features,
-  description: 'GulfOfKachchh_SST_Monthly_Celsius',
+  description: 'aoi_SST_Monthly_Celsius',
   fileFormat: 'CSV'
 });
 
 // 6. OPTIONAL: VISUALIZE A YEARLY COMPOSITE
 
 var sst2010 = ee.ImageCollection("NOAA/CDR/OISST/V2_1")
-  .filterBounds(gulfOfKachchh)
+  .filterBounds(aoi)
   .filterDate('2010-01-01', '2010-12-31')
   .select('sst')
   .mean()
   .multiply(0.01)   // convert to °C
-  .clip(gulfOfKachchh);
+  .clip(aoi);
 
 Map.addLayer(sst2010, visParams, 'SST 2010 Mean (°C)');
-Map.centerObject(gulfOfKachchh, 6);
-Map.addLayer(gulfOfKachchh, {color: 'black'}, 'Gulf of Kachchh AOI');
+Map.centerObject(aoi, 6);
+Map.addLayer(aoi, {color: 'black'}, 'AOI');
