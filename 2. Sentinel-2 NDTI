@@ -1,0 +1,83 @@
+// Sentinel-2 NDTI Visualization with Legend
+
+// Center map on Area of Interest
+Map.centerObject(AOI, 12);
+Map.setOptions('SATELLITE');
+// Load and filter Sentinel-2 surface reflectance data
+var sentinelimage = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .select(['B3', 'B4', 'B8'])  // Green, Red, NIR
+  .filterDate('2024-01-01', '2024-12-31')
+  .filterBounds(AOI)
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+  .median()
+  .multiply(0.0001);  // Apply scale factor
+
+// Calculate NDWI (water index)
+var ndwi = sentinelimage.normalizedDifference(['B3', 'B8']).rename("NDWI");
+
+// Create binary water mask (NDWI > 0)
+var watermask = ndwi.gt(0).rename('watermask');
+
+// Calculate NDTI (tillage index)
+var ndti = sentinelimage.normalizedDifference(['B4', 'B3']).rename("NDTI");
+
+// Apply water mask to NDTI (only show over water)
+var clipndti = ndti.updateMask(watermask).clip(AOI);
+
+// Visualization parameters
+var ndtiVis = {
+  min: -1,
+  max: 1,
+  palette: ['blue', 'green', 'yellow', 'orange', 'red']
+};
+
+// Add NDTI layer to the map (masked to water)
+Map.addLayer(clipndti, ndtiVis, 'clipndti', false);
+
+// ----------------------------------
+// Add Legend for NDTI
+// ----------------------------------
+
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-right',
+    padding: '8px 15px'
+  }
+});
+
+legend.add(ui.Label({
+  value: 'NDTI (Water Areas)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '16px',
+    margin: '0 0 4px 0'
+  }
+}));
+
+// Define color palette and corresponding value ranges
+var palette = ['blue', 'green', 'yellow', 'orange', 'red'];
+var labels = ['-1.0 to -0.5', '-0.5 to 0.0', '0.0 to 0.5', '0.5 to 0.75', '0.75 to 1.0'];
+
+for (var i = 0; i < palette.length; i++) {
+  var colorBox = ui.Label('', {
+    backgroundColor: palette[i],
+    padding: '8px',
+    margin: '0 0 4px 0'
+  });
+  var label = ui.Label(labels[i], {
+    margin: '0 0 4px 6px'
+  });
+  legend.add(ui.Panel([colorBox, label], ui.Panel.Layout.Flow('horizontal')));
+}
+
+// Add legend to the map
+Map.add(legend);
+
+Export.image.toDrive({
+  image: clipndti.clip(AOI),
+  description: 'NDTI_Image_Watom_Island',
+  folder: 'ee_exports',
+  scale: 10, // Sentinel-2 resolution
+  region: AOI,
+  fileFormat: 'GeoTIFF'
+});
