@@ -18,7 +18,7 @@ var ndwi = sentinelimage.normalizedDifference(['B3', 'B8']).rename("NDWI");
 // Create binary water mask (NDWI > 0)
 var watermask = ndwi.gt(0).rename('watermask');
 
-// Calculate NDTI (tillage index)
+// Calculate NDTI (turbidty index)
 var ndti = sentinelimage.normalizedDifference(['B4', 'B3']).rename("NDTI");
 
 // Apply water mask to NDTI (only show over water)
