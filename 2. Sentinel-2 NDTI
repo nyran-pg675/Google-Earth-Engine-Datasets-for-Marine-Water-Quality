@@ -34,9 +34,7 @@ var ndtiVis = {
 // Add NDTI layer to the map (masked to water)
 Map.addLayer(clipndti, ndtiVis, 'clipndti', false);
 
-// ----------------------------------
 // Add Legend for NDTI
-// ----------------------------------
 
 var legend = ui.Panel({
   style: {
