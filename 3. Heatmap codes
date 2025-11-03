@@ -1,0 +1,36 @@
+# STEP 2: Import libraries 
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# STEP 3: Load dataset 
+# Replace with your own Drive path
+file_path = "/content/GulfOfKachchh_SST_Monthly_Celsius.csv"
+df = pd.read_csv(file_path)
+
+print("Data loaded successfully! Preview:")
+print(df.head())
+
+# STEP 4: Prepare data for heatmap
+df["month"] = df["month"].astype(int)
+df["year"] = df["year"].astype(int)
+
+# Create pivot table: years × months
+pivot_table = df.pivot_table(values="mean_SST_C", index="year", columns="month", aggfunc="mean")
+
+# STEP 5: Plot Heatmap 
+plt.figure(figsize=(12,8))
+sns.heatmap(pivot_table, cmap="YlOrRd", annot=True, fmt=".1f", linewidths=.5)
+plt.title("Monthly Sea Surface Temperature (SST) — Gulf of Kachchh", fontsize=14)
+plt.xlabel("Month", fontsize=12)
+plt.ylabel("Year", fontsize=12)
+plt.xticks(rotation=0)
+plt.yticks(rotation=0)
+plt.show()
+
+# STEP 6: Identify hottest month overall 
+monthly_avg = df.groupby("month")["mean_SST_C"].mean()
+hottest_month = monthly_avg.idxmax()
+hottest_temp = monthly_avg.max()
+
+print(f" Month with highest average SST across all years: {hottest_month} → {hottest_temp:.2f} °C")
