@@ -1,9 +1,7 @@
 
 // 1. DEFINE REGION: aoi
 
-var aoi = ee.Geometry.Polygon([
-  [[68.6, 23.0], [70.8, 23.0], [70.8, 22.1], [68.6, 22.1]]
-]);
+var aoi = Add your shapefile
 
 // Years to analyze
 var years = [1988, 2010, 2014, 2016];
