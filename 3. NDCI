@@ -1,0 +1,106 @@
+
+// Step 1: Define ROI
+
+Map.centerObject(roi, 17);
+
+
+// Step 2: Load Sentinel-2 SR dataset
+
+var s2 = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .filterDate('2024-01-01', '2024-12-31')
+  .filterBounds(roi)
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10));
+
+
+
+// Step 3: Calculate NDCI (with NDWI water mask)
+
+var ndciCol = s2.map(function(image) {
+    // Scale reflectance
+    var bands = image.select('B.*').multiply(0.0001);
+
+    // NDWI for water detection
+    var ndwi = bands.normalizedDifference(['B3','B8']).rename('ndwi');
+    var waterMask = ndwi.gt(0);
+
+    // NDCI = (B5 - B4) / (B5 + B4)
+    var ndci = bands.normalizedDifference(['B5','B4']).rename('ndci');
+
+    return ndci.updateMask(waterMask)
+               .copyProperties(image, ['system:time_start']);
+  });
+
+print("NDCI Collection", ndciCol);
+
+
+
+// Step 4: Median NDCI Map
+
+var ndci_median = ndciCol.median().clip(roi);
+
+// Visualization parameters
+var ndciVis = {
+  min: -1,
+  max: 1,
+  palette: [
+    'blue',   // low values
+    'cyan',
+    'green',
+    'yellow',
+    'orange',
+    'red'     // high values
+  ]
+};
+
+// Add layer
+Map.addLayer(ndci_median, ndciVis, 'Median NDCI (Water Masked)');
+
+// Step 7: Add Legend for NDCI (Horizontal)
+
+function addLegendHorizontal(visParams, title) {
+  var palette = visParams.palette;
+
+  var legend = ui.Panel({
+    style: {position: 'bottom-left', padding: '8px'}
+  });
+
+  // Title
+  var legendTitle = ui.Label({
+    value: title,
+    style: {fontWeight: 'bold'}
+  });
+  legend.add(legendTitle);
+
+  // Create horizontal gradient
+  var lon = ee.Image.pixelLonLat().select('longitude');
+  var gradient = lon.multiply((visParams.max - visParams.min) / 100.0)
+                    .add(visParams.min);
+  gradient = gradient.visualize(visParams);
+
+  // Thumbnail (horizontal bar)
+  var thumb = ui.Thumbnail({
+    image: gradient,
+    params: {bbox: [0, 0, 100, 10], dimensions: '200x20'},
+    style: {stretch: 'horizontal', margin: '0px 8px'}
+  });
+
+  // Labels for intervals
+  var labels = ui.Panel({
+    widgets: [
+      ui.Label(visParams.min.toString(), {margin: '4px 8px'}),
+      ui.Label(((visParams.max + visParams.min)/2).toFixed(2), {margin: '4px 8px', textAlign: 'center', stretch: 'horizontal'}),
+      ui.Label(visParams.max.toString(), {margin: '4px 8px'})
+    ],
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {stretch: 'horizontal', margin: '0px 0px'}
+  });
+
+  // Assemble legend
+  legend.add(thumb);
+  legend.add(labels);
+
+  Map.add(legend);
+}
+
+// Call function
+addLegendHorizontal(ndciVis, 'NDCI');
