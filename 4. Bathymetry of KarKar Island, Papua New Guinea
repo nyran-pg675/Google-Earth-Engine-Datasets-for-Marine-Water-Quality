@@ -1,0 +1,31 @@
+# Step 1 — Install dependencies
+!pip install rasterio matplotlib
+
+# Step 2 — Upload your GeoTIFF
+
+from google.colab import files
+uploaded = files.upload()
+
+# After uploading, get the file name automatically
+tif_path = list(uploaded.keys())[0]
+print("Using file:", tif_path)
+
+# Step 3 — Read and visualize the bathymetry
+
+import rasterio
+import matplotlib.pyplot as plt
+
+# Open the GeoTIFF
+with rasterio.open(tif_path) as src:
+    bathy = src.read(1)
+    bounds = src.bounds
+
+# Plot
+plt.figure(figsize=(10, 8))
+plt.imshow(bathy, extent=(bounds.left, bounds.right, bounds.bottom, bounds.top))
+plt.colorbar(label="Depth (m)")
+plt.title("Bathymetry of KarKar Island, Papua New Guinea")
+plt.xlabel("Longitude")
+plt.ylabel("Latitude")
+plt.grid(True, linestyle="--", alpha=0.4)
+plt.show()
