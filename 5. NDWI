@@ -1,0 +1,31 @@
+!pip install rasterio matplotlib
+
+import rasterio
+import matplotlib.pyplot as plt
+from rasterio.plot import show
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
+
+# Create a blue-white-brown colormap
+colors = ['saddlebrown', 'white', 'blue']   # adjust colors if needed
+custom_cmap = LinearSegmentedColormap.from_list("BlueWhiteBrown", colors)
+
+# Path to your NDWI TIFF file
+tiff_path = "/content/sentinel2_ndwi_hela.tif"
+
+# Open the raster
+with rasterio.open(tiff_path) as src:
+    data = src.read(1)   # Read band 1
+    profile = src.profile
+
+# Mask invalid values (optional)
+data = np.where((data < -1) | (data > 1), np.nan, data)
+
+# Plotting
+plt.figure(figsize=(10, 8))
+plt.imshow(data, cmap=custom_cmap, vmin=-1, vmax=1)
+plt.colorbar(label="NDWI (Normalized Difference Water Index)")
+plt.title("NDWI Visualization - Kaivak Area")
+plt.axis("off")
+plt.tight_layout()
+plt.show()
