@@ -29,3 +29,12 @@ plt.xlabel("Longitude")
 plt.ylabel("Latitude")
 plt.grid(True, linestyle="--", alpha=0.4)
 plt.show()
+
+This script:
+Installs needed libraries
+Loads a bathymetry GeoTIFF
+Extracts depth data
+Gets map boundaries
+Plots the map in real-world coordinates
+Adds title, labels, grid, and colorbar
+Result → A complete bathymetry map of KarKar Island.
