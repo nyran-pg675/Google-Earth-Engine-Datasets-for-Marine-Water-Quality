@@ -1,0 +1,53 @@
+// 📍 Normalized Difference Salinity Index (NDSI) Using Sentinel-2
+// Formula: (B4 - B8A) / (B4 + B8A)
+
+
+// 1. Region of Interest
+
+var roi = geometry;     // Draw AOI and rename to "geometry"
+Map.centerObject(roi, 10);
+Map.setOptions('SATELLITE');
+
+-
+// 2. Load Sentinel-2 SR (with bands needed for NDSI)
+
+var sen = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .select(['B4', 'B8A'])            // Red & Narrow NIR
+  .filterBounds(roi)
+  .filterDate('2017-01-01', '2017-12-31')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+  .median()
+  .multiply(0.0001);                // Scale reflectance
+
+
+// 3. Compute NDSI
+
+var ndsi = sen.normalizedDifference(['B4', 'B8A']).rename('NDSI');
+
+
+// 4. Visualize NDSI
+
+Map.addLayer(ndsi.clip(roi), {
+  min: -1,
+  max: 1,
+  palette: ['purple', 'cyan', 'yellow', 'orange', 'red']
+}, 'NDSI (Salinity Index)');
+
+
+// 5. Print Histogram (optional)
+
+print(ui.Chart.image.histogram(ndsi, roi, 100));
+
+
+// 6. Export NDSI (optional)
+
+// Export.image.toDrive({
+//   image: ndsi.clip(roi),
+//   description: 'Sentinel2_NDSI',
+//   folder: 'salinity',
+//   fileNamePrefix: 'sentinel2_ndsi',
+//   region: roi,
+//   scale: 10,
+//   crs: 'EPSG:4326',
+//   maxPixels: 1e13
+// });
