@@ -1,53 +1,68 @@
-// 📍 Normalized Difference Salinity Index (NDSI) Using Sentinel-2
-// Formula: (B4 - B8A) / (B4 + B8A)
 
-
-// 1. Region of Interest
-
-var roi = geometry;     // Draw AOI and rename to "geometry"
-Map.centerObject(roi, 10);
-Map.setOptions('SATELLITE');
-
--
-// 2. Load Sentinel-2 SR (with bands needed for NDSI)
+// 1. Load Sentinel-2 SR Data
 
 var sen = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-  .select(['B4', 'B8A'])            // Red & Narrow NIR
-  .filterBounds(roi)
-  .filterDate('2017-01-01', '2017-12-31')
+  .filterDate('2023-04-01', '2023-11-30')
   .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
-  .median()
-  .multiply(0.0001);                // Scale reflectance
+  .filterBounds(roi)
+  .select(['B4', 'B8']); // Red & NIR
+
+print('Sentinel-2 Collection:', sen);
 
 
-// 3. Compute NDSI
+// 2. Compute NDSI = (Red - NIR) / (Red + NIR)
 
-var ndsi = sen.normalizedDifference(['B4', 'B8A']).rename('NDSI');
+var addNDSI = function(img) {
+  var ndsi = img.normalizedDifference(['B4', 'B8']).rename('NDSI');
+  return img.addBands(ndsi);
+};
+
+var senNDSI = sen.map(addNDSI);
+
+// Take the median image for visualization
+var ndsiMedian = senNDSI.select('NDSI').median();
 
 
-// 4. Visualize NDSI
+// 3. Compute Max and Min NDSI Values
 
-Map.addLayer(ndsi.clip(roi), {
+var ndsiMax = ndsiMedian.reduceRegion({
+  reducer: ee.Reducer.max(),
+  geometry: roi,
+  scale: 10,
+  bestEffort: true
+});
+
+var ndsiMin = ndsiMedian.reduceRegion({
+  reducer: ee.Reducer.min(),
+  geometry: roi,
+  scale: 10,
+  bestEffort: true
+});
+
+print('NDSI MAX value:', ndsiMax);
+print('NDSI MIN value:', ndsiMin);
+
+
+// 4. Visualize NDSI on Map
+
+var ndsiVis = {
   min: -1,
   max: 1,
-  palette: ['purple', 'cyan', 'yellow', 'orange', 'red']
-}, 'NDSI (Salinity Index)');
+  palette: ['blue', 'white', 'red']
+};
 
 
-// 5. Print Histogram (optional)
+// 5. EXPORT NDSI AS GEOTIFF
 
-print(ui.Chart.image.histogram(ndsi, roi, 100));
+Export.image.toDrive({
+  image: ndsiMedian,
+  description: 'NDSI_Median_2023',
+  folder: 'Nyran Works',   // change if you want
+  fileNamePrefix: 'NDSI_Median_2023',
+  region: roi,
+  scale: 10,
+  maxPixels: 1e13
+})
 
-
-// 6. Export NDSI (optional)
-
-// Export.image.toDrive({
-//   image: ndsi.clip(roi),
-//   description: 'Sentinel2_NDSI',
-//   folder: 'salinity',
-//   fileNamePrefix: 'sentinel2_ndsi',
-//   region: roi,
-//   scale: 10,
-//   crs: 'EPSG:4326',
-//   maxPixels: 1e13
-// });
+Map.centerObject(roi, 10);
+Map.addLayer(ndsiMedian, ndsiVis, 'NDSI (Salinity Index)');
