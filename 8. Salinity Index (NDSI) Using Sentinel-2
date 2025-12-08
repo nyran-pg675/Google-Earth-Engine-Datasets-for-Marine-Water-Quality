@@ -1,3 +1,6 @@
+take note: High salinity has negative GSI values (SWIR dominance).
+Low salinity has positive GSI values (GREEN dominance).
+
 var roi = Select your AOI
 
 // 1. Load Sentinel-2 SR Data
