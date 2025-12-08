@@ -1,3 +1,4 @@
+var roi = Select your AOI
 
 // 1. Load Sentinel-2 SR Data
 
@@ -5,64 +6,63 @@ var sen = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
   .filterDate('2023-04-01', '2023-11-30')
   .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
   .filterBounds(roi)
-  .select(['B4', 'B8']); // Red & NIR
+  .select(['B3', 'B11']);   // Green & SWIR
 
 print('Sentinel-2 Collection:', sen);
 
-
-// 2. Compute NDSI = (Red - NIR) / (Red + NIR)
-
-var addNDSI = function(img) {
-  var ndsi = img.normalizedDifference(['B4', 'B8']).rename('NDSI');
-  return img.addBands(ndsi);
+// 2. Compute Green–SWIR Index
+var addIndex = function(img) {
+  var gsi = img.normalizedDifference(['B3', 'B11']).rename('GSI'); 
+  return img.addBands(gsi);
 };
 
-var senNDSI = sen.map(addNDSI);
+var senIndex = sen.map(addIndex);
 
-// Take the median image for visualization
-var ndsiMedian = senNDSI.select('NDSI').median();
+// Median composite of the index
+var gsiMedian = senIndex.select('GSI').median();
 
 
-// 3. Compute Max and Min NDSI Values
+// 3. Compute Max and Min Values
 
-var ndsiMax = ndsiMedian.reduceRegion({
+var gsiMax = gsiMedian.reduceRegion({
   reducer: ee.Reducer.max(),
   geometry: roi,
   scale: 10,
   bestEffort: true
 });
 
-var ndsiMin = ndsiMedian.reduceRegion({
+var gsiMin = gsiMedian.reduceRegion({
   reducer: ee.Reducer.min(),
   geometry: roi,
   scale: 10,
   bestEffort: true
 });
 
-print('NDSI MAX value:', ndsiMax);
-print('NDSI MIN value:', ndsiMin);
+print('GSI MAX value:', gsiMax);
+print('GSI MIN value:', gsiMin);
 
 
-// 4. Visualize NDSI on Map
+// 4. Visualization
 
-var ndsiVis = {
+var gsiVis = {
   min: -1,
   max: 1,
   palette: ['blue', 'white', 'red']
 };
 
 
-// 5. EXPORT NDSI AS GEOTIFF
+// 5. Export as GeoTIFF
 
 Export.image.toDrive({
-  image: ndsiMedian,
-  description: 'NDSI_Median_2023',
-  folder: 'Nyran Works',   // change if you want
-  fileNamePrefix: 'NDSI_Median_2023',
+  image: gsiMedian,
+  description: 'Green_SWIR_Index_2023',
+  folder: 'Nyran Works',
+  fileNamePrefix: 'GSI_Median_2023',
   region: roi,
   scale: 10,
   maxPixels: 1e13
-})
+});
 
+// 6. Add to Map
 Map.centerObject(roi, 10);
-Map.addLayer(ndsiMedian, ndsiVis, 'NDSI (Salinity Index)');
+Map.addLayer(gsiMedian, gsiVis, 'Green–SWIR Salinity Index');
