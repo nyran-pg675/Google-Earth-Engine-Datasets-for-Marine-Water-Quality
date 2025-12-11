@@ -1,0 +1,31 @@
+// Load Global Surface Water and define Dataset
+var aoi = ee.Image("JRC/GSW1_4/GlobalSurfaceWater");
+var Gujarat = ee.FeatureCollection('FAO/GAUL/2015/level1')
+  .filter(ee.Filter.eq('ADM1_NAME', 'Gujarat'))
+  .filter(ee.Filter.eq('ADM0_NAME', 'India'));
+
+var geometry = Gujarat.geometry(); // extracting gujarat boundary
+
+// Center the map on East New Britain
+Map.centerObject(geometry, 8);
+
+// Select the 'max_extent' band from Global Surface Water dataset
+var water = aoi.select('max_extent');
+
+// Clip the water layer to Gujarat
+var clipped = water.clip(geometry);
+
+// Visualization parameters for water layer
+var visParams = {min: 0, max: 1, palette: ['white', 'blue']};
+Map.addLayer(clipped, visParams, 'Surface Water');
+
+// Unmask the water layer to replace masked pixels with 0
+clipped = clipped.unmask(0);
+
+// Perform a morphological closing to fill holes in waterbodies
+var waterProcessed = clipped
+  .focalMax({radius: 30, units: 'meters', kernelType: 'square'})
+  .focalMin({radius: 30, units: 'meters', kernelType: 'square'});
+
+Map.addLayer(waterProcessed, visParams, 'Surface Water (Processed)');
+
