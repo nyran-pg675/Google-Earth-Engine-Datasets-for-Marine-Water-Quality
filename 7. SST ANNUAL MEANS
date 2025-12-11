@@ -1,0 +1,71 @@
+// 1. DEFINE REGION: Gulf of Kachchh
+var gulfOfKachchh = ee.Geometry.Polygon([
+  [[68.6, 23.0], [70.8, 23.0], [70.8, 22.1], [68.6, 22.1]]
+]);
+
+// Years to analyze
+var years = [1988, 1998, 2010, 2014, 2016, 2017, 2023, 2024];
+
+// Visualization parameters (in °C)
+var visParams = {
+  min: 20,
+  max: 33,
+  palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
+};
+
+
+// 2. FUNCTION: Generate **annual mean** for a given year
+function getAnnualMean(year) {
+  var start = ee.Date.fromYMD(year, 1, 1);
+  var end = start.advance(1, 'year');
+
+  var annualMean = ee.ImageCollection("NOAA/CDR/OISST/V2_1")
+      .filterBounds(gulfOfKachchh)
+      .filterDate(start, end)
+      .select('sst')
+      .mean()
+      .multiply(0.01)    // Convert to °C
+      .clip(gulfOfKachchh)
+      .set('year', year);
+
+  return annualMean;
+}
+
+
+// 3. CREATE IMAGE COLLECTION OF ALL ANNUAL MEANS
+var annualImages = ee.ImageCollection(
+  years.map(function(y) {
+    return getAnnualMean(y);
+  })
+);
+
+
+// 4. REDUCE TO MEAN OVER REGION & MAKE FEATURE COLLECTION
+var features = annualImages.map(function(img) {
+  var meanDict = img.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: gulfOfKachchh,
+    scale: 25000,
+    bestEffort: true
+  });
+  return ee.Feature(null, {
+    'year': img.get('year'),
+    'annual_mean_SST_C': meanDict.get('sst')
+  });
+});
+
+
+// 5. EXPORT TO CSV
+Export.table.toDrive({
+  collection: features,
+  description: 'GulfOfKachchh_SST_Annual_Celsius',
+  fileFormat: 'CSV'
+});
+
+
+// 6. OPTIONAL: VISUALIZE ONE YEAR (example 2010)
+var sst2010 = getAnnualMean(2010);
+Map.addLayer(sst2010, visParams, 'SST 2010 Annual Mean (°C)');
+
+Map.centerObject(gulfOfKachchh, 6);
+Map.addLayer(gulfOfKachchh, {color: 'black'}, 'Gulf of Kachchh AOI');
