@@ -1,0 +1,63 @@
+Reference to this script: I have used the methodology from a research article with the help of YouTube.
+link: (https://www.sciencedirect.com/science/article/abs/pii/S2352938523000277)
+
+// Total Dissolved Solids (TDS) Estimation using Sentinel-2
+// TDS represents the concentration of dissolved organic
+// and inorganic substances in water and is an indicator
+// of overall water quality.
+
+// Center map and set base layer
+Map.centerObject(aoi, 12);
+Map.addLayer(aoi, {}, 'AOI');
+Map.setOptions('SATELLITE');
+
+
+// Cloud masking function for Sentinel-2 SR
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+
+  // Cloud and cirrus bits
+  var cloudBitMask  = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+
+  // Mask clear pixels
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0)
+               .and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+
+  return image.updateMask(mask)
+              .divide(10000)
+              .copyProperties(image, ['system:time_start']);
+}
+
+
+// Load and process Sentinel-2 imagery
+
+var s2Image = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterDate('2020-01-01', '2020-12-31')
+  .filterBounds(aoi)
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+  .map(maskS2clouds)
+  .median();
+
+
+// TDS calculation using SWIR band (B11)
+
+var TDS = s2Image
+  .select('B11')
+  .multiply(4358.5)
+  .add(685.47)
+  .rename('TDS');
+
+
+// Visualization parameters
+
+var tdsVis = {
+  min: 700,
+  max: 1800,
+  palette: ['blue', 'cyan', 'green', 'yellow','red']
+};
+
+
+// Display results
+
+Map.addLayer(TDS.clip(aoi), tdsVis, 'TDS (mg/L)');
