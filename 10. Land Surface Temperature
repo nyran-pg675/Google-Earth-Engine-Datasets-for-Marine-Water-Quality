@@ -1,0 +1,60 @@
+
+# Visualize LST GeoTIFF with Legend
+# Choose File from Computer (Google Colab)
+
+import rasterio
+import matplotlib.pyplot as plt
+import numpy as np
+from google.colab import files
+
+# Upload GeoTIFF file
+uploaded = files.upload()
+
+# Get the uploaded file name
+lst_path = list(uploaded.keys())[0]
+
+print(f"Selected file: {lst_path}")
+
+# Open the raster
+with rasterio.open(lst_path) as src:
+    lst = src.read(1)           # Read the first band
+    profile = src.profile
+
+# Replace NoData values with NaN
+nodata = profile.get('nodata')
+
+if nodata is not None:
+    lst = np.where(lst == nodata, np.nan, lst)
+
+# Display minimum and maximum values
+print("Minimum LST (°C):", np.nanmin(lst))
+print("Maximum LST (°C):", np.nanmax(lst))
+
+
+# Visualization
+
+
+plt.figure(figsize=(10, 8))
+
+img = plt.imshow(
+    lst,
+    cmap='jet',                       # Temperature colour palette
+    vmin=np.nanmin(lst),             # Automatic minimum
+    vmax=np.nanmax(lst)              # Automatic maximum
+)
+
+# Colorbar (Legend)
+cbar = plt.colorbar(img)
+cbar.set_label('Land Surface Temperature (°C)', fontsize=12)
+
+# Title
+plt.title(
+    'Land Surface Temperature (LST)',
+    fontsize=14,
+    fontweight='bold'
+)
+
+# Remove axes
+plt.axis('off')
+
+plt.show()
